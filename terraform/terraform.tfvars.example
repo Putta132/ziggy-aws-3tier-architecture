@@ -1,0 +1,7 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# NEVER commit terraform.tfvars to git (it's in .gitignore).
+
+aws_region   = "ap-south-1"
+project_name = "ziggy"
+key_name     = "your-keypair-name"
+db_password  = "YourStrongPassword123!"

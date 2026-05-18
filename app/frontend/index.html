@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ziggy 🍔 — Food Ordering App</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body { font-family: Arial, sans-serif; background: #f8f9fa; }
+    .hero {
+      background: linear-gradient(135deg, #fc8019, #e05f00);
+      color: white;
+      padding: 80px 20px;
+      text-align: center;
+    }
+    .hero h1 { font-size: 52px; font-weight: bold; }
+    .hero p  { font-size: 18px; opacity: 0.9; }
+    .card    { border: none; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+    .card img { height: 200px; object-fit: cover; border-radius: 12px 12px 0 0; }
+    .badge-category { background: #fc8019; color: white; }
+    footer { background: #333; color: #ccc; text-align: center; padding: 24px; margin-top: 60px; }
+    #status-bar { font-size: 13px; color: #888; text-align: center; margin: 10px 0; }
+  </style>
+</head>
+<body>
+
+  <div class="hero">
+    <h1>Ziggy 🍔</h1>
+    <p>Order food from your favourite restaurants</p>
+  </div>
+
+  <div class="container mt-5">
+    <h2 class="text-center mb-2">Popular Dishes</h2>
+    <p id="status-bar">Loading menu from app server...</p>
+    <div class="row" id="menu-container"></div>
+  </div>
+
+  <div class="container mt-4" id="order-section" style="display:none;">
+    <h4>Place an Order</h4>
+    <div class="row g-2">
+      <div class="col-md-4">
+        <input type="text" id="customer-name" class="form-control" placeholder="Your name" />
+      </div>
+      <div class="col-md-4">
+        <select id="item-select" class="form-select"></select>
+      </div>
+      <div class="col-md-2">
+        <input type="number" id="quantity" class="form-control" value="1" min="1" />
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-warning w-100 fw-bold" onclick="placeOrder()">Order Now</button>
+      </div>
+    </div>
+    <p id="order-status" class="mt-2 text-success fw-bold"></p>
+  </div>
+
+  <footer>
+    <p>© 2026 Ziggy Food App | Built by Prateek Kulkarni 🚀</p>
+    <small>AWS 3-Tier Architecture: Nginx → Node.js (Express) → RDS MySQL</small>
+  </footer>
+
+  <script>
+    // APP_SERVER_URL is replaced by Nginx proxy — requests go to /api/*
+    // Nginx forwards /api/* → internal ALB → Node.js EC2 in private subnet
+    const API_BASE = "/api";
+
+    let menuItems = [];
+
+    async function loadMenu() {
+      try {
+        const res = await fetch(`${API_BASE}/menu`);
+        if (!res.ok) throw new Error("API error " + res.status);
+        menuItems = await res.json();
+        document.getElementById("status-bar").textContent =
+          `${menuItems.length} items loaded from app server ✅`;
+        renderMenu(menuItems);
+        populateSelect(menuItems);
+        document.getElementById("order-section").style.display = "block";
+      } catch (err) {
+        document.getElementById("status-bar").textContent =
+          "⚠️ Could not reach app server: " + err.message;
+      }
+    }
+
+    function renderMenu(items) {
+      const container = document.getElementById("menu-container");
+      container.innerHTML = items.map(item => `
+        <div class="col-md-4 mb-4">
+          <div class="card h-100">
+            <div class="card-body">
+              <span class="badge badge-category mb-2">${item.category}</span>
+              <h5 class="card-title">${item.name}</h5>
+              <p class="text-muted">${item.description}</p>
+              <p class="fw-bold text-warning fs-5">₹${parseFloat(item.price).toFixed(2)}</p>
+            </div>
+          </div>
+        </div>`).join("");
+    }
+
+    function populateSelect(items) {
+      const select = document.getElementById("item-select");
+      select.innerHTML = items.map(i =>
+        `<option value="${i.id}">${i.name} — ₹${i.price}</option>`
+      ).join("");
+    }
+
+    async function placeOrder() {
+      const customer_name = document.getElementById("customer-name").value.trim();
+      const item_id       = document.getElementById("item-select").value;
+      const quantity      = document.getElementById("quantity").value;
+      const statusEl      = document.getElementById("order-status");
+
+      if (!customer_name) { statusEl.textContent = "Please enter your name."; return; }
+
+      try {
+        const res = await fetch(`${API_BASE}/orders`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ customer_name, item_id: parseInt(item_id), quantity: parseInt(quantity) }),
+        });
+        const data = await res.json();
+        statusEl.textContent = res.ok
+          ? `✅ Order #${data.orderId} placed for ${customer_name}!`
+          : `❌ ${data.error}`;
+      } catch (err) {
+        statusEl.textContent = "❌ Order failed: " + err.message;
+      }
+    }
+
+    loadMenu();
+  </script>
+</body>
+</html>
